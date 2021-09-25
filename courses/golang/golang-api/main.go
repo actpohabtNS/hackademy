@@ -10,6 +10,12 @@ import (
 	"time"
 )
 
+func wrapJwt(jwt *JWTService, f func(http.ResponseWriter, *http.Request, *JWTService)) http.HandlerFunc {
+	return func(rw http.ResponseWriter, r *http.Request) {
+		f(rw, r, jwt)
+	}
+}
+
 func getCakeHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, err := w.Write([]byte("cake"))
@@ -25,8 +31,14 @@ func main() {
 		repository: NewInMemoryUserStorage(),
 	}
 
+	jwtService, jwtErr := NewJWTService("pubkey.rsa", "privkey.rsa")
+	if jwtErr != nil {
+		panic(jwtErr)
+	}
+
 	r.HandleFunc("/cake", logRequest(getCakeHandler)).Methods(http.MethodGet)
 	r.HandleFunc("/user/register", logRequest(userService.Register)).Methods(http.MethodPost)
+	r.HandleFunc("/user/jwt", logRequest(wrapJwt(jwtService, userService.JWT))).Methods(http.MethodPost)
 
 	srv := http.Server{
 		Addr:    ":8080",
