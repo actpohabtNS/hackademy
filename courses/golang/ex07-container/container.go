@@ -34,16 +34,13 @@ func parent() {
 }
 
 func child() {
-	//must(syscall.Mount("rootfs", "rootfs", "", syscall.MS_BIND, ""))
-	//must(os.MkdirAll("rootfs/oldrootfs", 0700))
-	//must(syscall.PivotRoot("rootfs", "rootfs/oldrootfs"))
-	//must(os.Chdir("/"))
 	cmd := exec.Command(os.Args[2], os.Args[3:]...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	must(syscall.Chroot("./rootfs"))
+	must(syscall.Sethostname([]byte("container")))
+	must(syscall.Chroot("/home/astronaut/Documents/Hackademy/hackademy/courses/golang/ex07-container/ubuntufs"))
 	must(os.Chdir("/"))
 	must(syscall.Mount("proc", "proc", "proc", 0, ""))
 
@@ -51,6 +48,8 @@ func child() {
 		fmt.Println("ERROR", err)
 		os.Exit(1)
 	}
+
+	must(syscall.Unmount("proc", 0))
 }
 
 func must(err error) {
