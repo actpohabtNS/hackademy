@@ -21,9 +21,9 @@ func (userStorage *InMemoryUserStorage) Add(email string, user User) error {
 	userStorage.lock.Lock()
 	defer userStorage.lock.Unlock()
 
-	_, err := userStorage.storage[email]
+	_, ok := userStorage.storage[email]
 
-	if err {
+	if ok {
 		return errors.New("user already exists")
 	} else {
 		userStorage.storage[email] = user
@@ -36,9 +36,9 @@ func (userStorage *InMemoryUserStorage) Get(email string) (User, error) {
 	userStorage.lock.Lock()
 	defer userStorage.lock.Unlock()
 
-	user, err := userStorage.storage[email]
+	user, ok := userStorage.storage[email]
 
-	if err {
+	if !ok {
 		return User{}, errors.New("user doesn't exist")
 	}
 
@@ -49,9 +49,9 @@ func (userStorage *InMemoryUserStorage) Update(email string, newUser User) error
 	userStorage.lock.Lock()
 	defer userStorage.lock.Unlock()
 
-	_, err := userStorage.storage[email]
+	_, ok := userStorage.storage[email]
 
-	if err {
+	if !ok {
 		return errors.New("user doesn't exist")
 	}
 
@@ -64,9 +64,9 @@ func (userStorage *InMemoryUserStorage) Delete(email string) (User, error) {
 	userStorage.lock.Lock()
 	defer userStorage.lock.Unlock()
 
-	user, err := userStorage.storage[email]
+	user, ok := userStorage.storage[email]
 
-	if err {
+	if !ok {
 		return User{}, errors.New("user doesn't exist")
 	}
 
