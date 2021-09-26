@@ -39,7 +39,7 @@ func (userStorage *InMemoryUserStorage) Get(email string) (User, error) {
 	user, ok := userStorage.storage[email]
 
 	if !ok {
-		return User{}, errors.New("user doesn't exist")
+		return User{}, errors.New("invalid login credentials")
 	}
 
 	return user, nil
@@ -52,7 +52,7 @@ func (userStorage *InMemoryUserStorage) Update(email string, newUser User) error
 	_, ok := userStorage.storage[email]
 
 	if !ok {
-		return errors.New("user doesn't exist")
+		return errors.New("invalid login credentials")
 	}
 
 	userStorage.storage[email] = newUser
@@ -67,7 +67,7 @@ func (userStorage *InMemoryUserStorage) Delete(email string) (User, error) {
 	user, ok := userStorage.storage[email]
 
 	if !ok {
-		return User{}, errors.New("user doesn't exist")
+		return User{}, errors.New("invalid login credentials")
 	}
 
 	delete(userStorage.storage, email)

@@ -82,10 +82,9 @@ func TestUsers_JWT(t *testing.T) {
 			"email":    "test@mail.com",
 			"password": "somepass",
 		}
-		resp := doRequest(http.NewRequest(http.MethodPost, ts.
-			URL, prepareParams(t, params)))
+		resp := doRequest(http.NewRequest(http.MethodPost, ts.URL, prepareParams(t, params)))
 		assertStatus(t, 422, resp)
-		assertBody(t, "invalid login params", resp)
+		assertBody(t, "invalid login credentials", resp)
 	})
 
 	t.Run("wrong password", func(t *testing.T) {
