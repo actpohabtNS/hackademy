@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/openware/rango/pkg/auth"
 	"net/http"
+	"strings"
 )
 
 type JWTService struct {
@@ -66,5 +67,33 @@ func (u *UserService) JWT(w http.ResponseWriter, r *http.Request, jwtService *JW
 	_, wrErr := w.Write([]byte(token))
 	if wrErr != nil {
 		return
+	}
+}
+
+type ProtectedHandler func(rw http.ResponseWriter, r *http.Request, u User)
+
+func (j *JWTService) jwtAuth(users UserRepository, h ProtectedHandler) http.HandlerFunc {
+	return func(rw http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		token := strings.TrimPrefix(authHeader, "Bearer ")
+		jwtAuth, err := j.ParseJWT(token)
+		if err != nil {
+			rw.WriteHeader(401)
+			_, err := rw.Write([]byte("unauthorized"))
+			if err != nil {
+				return
+			}
+			return
+		}
+		user, err := users.Get(jwtAuth.Email)
+		if err != nil {
+			rw.WriteHeader(401)
+			_, err := rw.Write([]byte("unauthorized"))
+			if err != nil {
+				return
+			}
+			return
+		}
+		h(rw, r, user)
 	}
 }

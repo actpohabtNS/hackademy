@@ -16,9 +16,9 @@ func wrapJwt(jwt *JWTService, f func(http.ResponseWriter, *http.Request, *JWTSer
 	}
 }
 
-func getCakeHandler(w http.ResponseWriter, r *http.Request) {
+func getCakeHandler(w http.ResponseWriter, r *http.Request, u User) {
 	w.WriteHeader(http.StatusOK)
-	_, err := w.Write([]byte("cake"))
+	_, err := w.Write([]byte(u.FavoriteCake))
 	if err != nil {
 		return
 	}
@@ -27,16 +27,15 @@ func getCakeHandler(w http.ResponseWriter, r *http.Request) {
 func main() {
 	r := mux.NewRouter()
 
-	userService := UserService{
-		repository: NewInMemoryUserStorage(),
-	}
+	users := NewInMemoryUserStorage()
+	userService := UserService{repository: users}
 
 	jwtService, jwtErr := NewJWTService("pubkey.rsa", "privkey.rsa")
 	if jwtErr != nil {
 		panic(jwtErr)
 	}
 
-	r.HandleFunc("/cake", logRequest(getCakeHandler)).Methods(http.MethodGet)
+	r.HandleFunc("/cake", logRequest(jwtService.jwtAuth(users, getCakeHandler))).Methods(http.MethodGet)
 	r.HandleFunc("/user/register", logRequest(userService.Register)).Methods(http.MethodPost)
 	r.HandleFunc("/user/jwt", logRequest(wrapJwt(jwtService, userService.JWT))).Methods(http.MethodPost)
 
