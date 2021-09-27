@@ -18,7 +18,7 @@ func wrapJwt(jwt *JWTService, f func(http.ResponseWriter, *http.Request, *JWTSer
 
 func getCakeHandler(w http.ResponseWriter, r *http.Request, u User) {
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte(u.FavoriteCake))
+	_, _ = w.Write([]byte("[" + u.Email + "], your favourite cake is " + u.FavoriteCake))
 }
 
 func main() {
@@ -32,9 +32,9 @@ func main() {
 		panic(jwtErr)
 	}
 
-	r.HandleFunc("/cake", logRequest(jwtService.jwtAuth(users, getCakeHandler))).Methods(http.MethodGet)
 	r.HandleFunc("/user/register", logRequest(userService.Register)).Methods(http.MethodPost)
 	r.HandleFunc("/user/jwt", logRequest(wrapJwt(jwtService, userService.JWT))).Methods(http.MethodPost)
+	r.HandleFunc("/user/me", logRequest(jwtService.jwtAuth(users, getCakeHandler))).Methods(http.MethodGet)
 
 	srv := http.Server{
 		Addr:    ":8080",

@@ -60,7 +60,7 @@ func newTestRouter(u *UserService, jwtService *JWTService) *mux.Router {
 	r := mux.NewRouter()
 
 	r.HandleFunc("/user/register", u.Register).Methods(http.MethodPost)
-	r.HandleFunc("/cake", jwtService.jwtAuth(u.repository, getCakeHandler)).Methods(http.MethodGet)
+	r.HandleFunc("/user/me", jwtService.jwtAuth(u.repository, getCakeHandler)).Methods(http.MethodGet)
 	r.HandleFunc("/user/jwt", wrapJwt(jwtService, u.JWT)).Methods(http.MethodPost)
 
 	return r
@@ -173,12 +173,12 @@ func TestUsers_JWT(t *testing.T) {
 		}
 		doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/register", prepareParams(t, registerParams)))
 
-		resp := doRequest(http.NewRequest(http.MethodGet, ts.URL+"/cake", nil))
+		resp := doRequest(http.NewRequest(http.MethodGet, ts.URL+"/user/me", nil))
 		assertStatus(t, 401, resp)
 		assertBody(t, "unauthorized", resp)
 	})
 
-	t.Run("get cake", func(t *testing.T) {
+	t.Run("getting user info", func(t *testing.T) {
 		u := newTestUserService()
 
 		jwtService, jwtErr := NewJWTService("pubkey.rsa", "privkey.rsa")
@@ -201,11 +201,11 @@ func TestUsers_JWT(t *testing.T) {
 			"password": "somepass",
 		}
 		jwtResp := doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/jwt", prepareParams(t, jwtParams)))
-		req, _ := http.NewRequest(http.MethodGet, ts.URL+"/cake", nil)
+		req, _ := http.NewRequest(http.MethodGet, ts.URL+"/user/me", nil)
 		req.Header.Set("Authorization", "Bearer "+string(jwtResp.body))
 		resp := doRequest(req, nil)
 		assertStatus(t, 200, resp)
-		assertBody(t, "cheesecake", resp)
+		assertBody(t, "[test@mail.com], your favourite cake is cheesecake", resp)
 	})
 
 	t.Run("login must be an email", func(t *testing.T) {
