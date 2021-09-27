@@ -298,6 +298,12 @@ func TestUsers_JWT(t *testing.T) {
 		resp := doRequest(req, nil)
 		assertStatus(t, 200, resp)
 		assertBody(t, "favorite cake updated", resp)
+
+		req, _ = http.NewRequest(http.MethodGet, ts.URL+"/user/me", nil)
+		req.Header.Set("Authorization", "Bearer "+string(jwtResp.body))
+		resp = doRequest(req, nil)
+		assertStatus(t, 200, resp)
+		assertBody(t, "[test@mail.com], your favourite cake is cinnabon", resp)
 	})
 
 }
