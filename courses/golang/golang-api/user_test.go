@@ -262,4 +262,42 @@ func TestUsers_JWT(t *testing.T) {
 		assertStatus(t, 422, resp)
 		assertBody(t, "could not read params", resp)
 	})
+
+	t.Run("updating favorite cake", func(t *testing.T) {
+		u := newTestUserService()
+
+		jwtService, jwtErr := NewJWTService("pubkey.rsa", "privkey.rsa")
+		if jwtErr != nil {
+			panic(jwtErr)
+		}
+
+		ts := httptest.NewServer(newRouter(u, jwtService))
+		defer ts.Close()
+
+		registerParams := map[string]interface{}{
+			"email":         "test@mail.com",
+			"password":      "somepass",
+			"favorite_cake": "cheesecake",
+		}
+		doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/register", prepareParams(t, registerParams)))
+
+		jwtParams := map[string]interface{}{
+			"email":    "test@mail.com",
+			"password": "somepass",
+		}
+		jwtResp := doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/jwt", prepareParams(t, jwtParams)))
+
+		updateCakeParams := map[string]interface{}{
+			"email":         "test@mail.com",
+			"password":      "somepass",
+			"favorite_cake": "cinnabon",
+		}
+
+		req, _ := http.NewRequest(http.MethodPut, ts.URL+"/user/favorite_cake", prepareParams(t, updateCakeParams))
+		req.Header.Set("Authorization", "Bearer "+string(jwtResp.body))
+		resp := doRequest(req, nil)
+		assertStatus(t, 200, resp)
+		assertBody(t, "favorite cake updated", resp)
+	})
+
 }
