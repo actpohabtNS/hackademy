@@ -64,10 +64,7 @@ func (u *UserService) JWT(w http.ResponseWriter, r *http.Request, jwtService *JW
 	}
 
 	w.WriteHeader(http.StatusOK)
-	_, wrErr := w.Write([]byte(token))
-	if wrErr != nil {
-		return
-	}
+	_, _ = w.Write([]byte(token))
 }
 
 type ProtectedHandler func(rw http.ResponseWriter, r *http.Request, u User)
@@ -79,19 +76,13 @@ func (j *JWTService) jwtAuth(users UserRepository, h ProtectedHandler) http.Hand
 		jwtAuth, err := j.ParseJWT(token)
 		if err != nil {
 			rw.WriteHeader(401)
-			_, err := rw.Write([]byte("unauthorized"))
-			if err != nil {
-				return
-			}
+			_, _ = rw.Write([]byte("unauthorized"))
 			return
 		}
 		user, err := users.Get(jwtAuth.Email)
 		if err != nil {
 			rw.WriteHeader(401)
-			_, err := rw.Write([]byte("unauthorized"))
-			if err != nil {
-				return
-			}
+			_, _ = rw.Write([]byte("unauthorized"))
 			return
 		}
 		h(rw, r, user)

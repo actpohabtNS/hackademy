@@ -77,16 +77,10 @@ func (u *UserService) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
-	_, wrErr := w.Write([]byte("registered"))
-	if wrErr != nil {
-		return
-	}
+	_, _ = w.Write([]byte("registered"))
 }
 
 func handleError(err error, w http.ResponseWriter) {
 	w.WriteHeader(http.StatusUnprocessableEntity)
-	_, wrErr := w.Write([]byte(err.Error()))
-	if wrErr != nil {
-		return
-	}
+	_, _ = w.Write([]byte(err.Error()))
 }

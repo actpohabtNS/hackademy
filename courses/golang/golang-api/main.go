@@ -18,10 +18,7 @@ func wrapJwt(jwt *JWTService, f func(http.ResponseWriter, *http.Request, *JWTSer
 
 func getCakeHandler(w http.ResponseWriter, r *http.Request, u User) {
 	w.WriteHeader(http.StatusOK)
-	_, err := w.Write([]byte(u.FavoriteCake))
-	if err != nil {
-		return
-	}
+	_, _ = w.Write([]byte(u.FavoriteCake))
 }
 
 func main() {
