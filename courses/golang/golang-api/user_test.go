@@ -155,7 +155,7 @@ func TestUsers_JWT(t *testing.T) {
 		assertBody(t, "invalid login credentials", resp)
 	})
 
-	t.Run("unauthorized", func(t *testing.T) {
+	t.Run("getting cake without jwt", func(t *testing.T) {
 		u := newTestUserService()
 
 		jwtService, jwtErr := NewJWTService("pubkey.rsa", "privkey.rsa")
@@ -262,5 +262,15 @@ func TestUsers_JWT(t *testing.T) {
 		resp := doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/register", prepareParams(t, params)))
 		assertStatus(t, 422, resp)
 		assertBody(t, "favourite cake must contain only alphabetic characters", resp)
+	})
+
+	t.Run("wrong request params", func(t *testing.T) {
+		u := newTestUserService()
+		ts := httptest.NewServer(http.HandlerFunc(u.Register))
+		defer ts.Close()
+
+		resp := doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/register", bytes.NewBuffer([]byte("blah"))))
+		assertStatus(t, 422, resp)
+		assertBody(t, "could not read params", resp)
 	})
 }
