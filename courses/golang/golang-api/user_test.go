@@ -87,7 +87,7 @@ func TestUsers_JWT(t *testing.T) {
 		if err != nil {
 			t.FailNow()
 		}
-		ts := httptest.NewServer(wrapJwt(j, u.JWT))
+		ts := httptest.NewServer(logRequest(wrapJwt(j, u.JWT)))
 		defer ts.Close()
 		params := map[string]interface{}{
 			"email":    "test@mail.com",
@@ -100,7 +100,7 @@ func TestUsers_JWT(t *testing.T) {
 
 	t.Run("registration", func(t *testing.T) {
 		u := newTestUserService()
-		ts := httptest.NewServer(logRequest(u.Register))
+		ts := httptest.NewServer(http.HandlerFunc(u.Register))
 		defer ts.Close()
 		params := map[string]interface{}{
 			"email":         "test@mail.com",
@@ -110,6 +110,22 @@ func TestUsers_JWT(t *testing.T) {
 		resp := doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/register", prepareParams(t, params)))
 		assertStatus(t, 201, resp)
 		assertBody(t, "registered", resp)
+	})
+
+	t.Run("adding already registered user", func(t *testing.T) {
+		u := newTestUserService()
+		ts := httptest.NewServer(http.HandlerFunc(u.Register))
+		defer ts.Close()
+		params := map[string]interface{}{
+			"email":         "test@mail.com",
+			"password":      "somepass",
+			"favorite_cake": "cheesecake",
+		}
+		doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/register", prepareParams(t, params)))
+
+		resp := doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/register", prepareParams(t, params)))
+		assertStatus(t, 422, resp)
+		assertBody(t, "user already exists", resp)
 	})
 
 	t.Run("wrong password", func(t *testing.T) {
@@ -190,5 +206,61 @@ func TestUsers_JWT(t *testing.T) {
 		resp := doRequest(req, nil)
 		assertStatus(t, 200, resp)
 		assertBody(t, "cheesecake", resp)
+	})
+
+	t.Run("login must be an email", func(t *testing.T) {
+		u := newTestUserService()
+		ts := httptest.NewServer(http.HandlerFunc(u.Register))
+		defer ts.Close()
+		params := map[string]interface{}{
+			"email":         "notAnEmail",
+			"password":      "somepass",
+			"favorite_cake": "cheesecake",
+		}
+		resp := doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/register", prepareParams(t, params)))
+		assertStatus(t, 422, resp)
+		assertBody(t, "must provide an email", resp)
+	})
+
+	t.Run("short password", func(t *testing.T) {
+		u := newTestUserService()
+		ts := httptest.NewServer(http.HandlerFunc(u.Register))
+		defer ts.Close()
+		params := map[string]interface{}{
+			"email":         "test@mail.com",
+			"password":      "short",
+			"favorite_cake": "cheesecake",
+		}
+		resp := doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/register", prepareParams(t, params)))
+		assertStatus(t, 422, resp)
+		assertBody(t, "password must be at least 8 symbols", resp)
+	})
+
+	t.Run("null cake", func(t *testing.T) {
+		u := newTestUserService()
+		ts := httptest.NewServer(http.HandlerFunc(u.Register))
+		defer ts.Close()
+		params := map[string]interface{}{
+			"email":         "test@mail.com",
+			"password":      "somepass",
+			"favorite_cake": "",
+		}
+		resp := doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/register", prepareParams(t, params)))
+		assertStatus(t, 422, resp)
+		assertBody(t, "favourite cake can't be empty", resp)
+	})
+
+	t.Run("cake with numbers", func(t *testing.T) {
+		u := newTestUserService()
+		ts := httptest.NewServer(http.HandlerFunc(u.Register))
+		defer ts.Close()
+		params := map[string]interface{}{
+			"email":         "test@mail.com",
+			"password":      "somepass",
+			"favorite_cake": "cake1",
+		}
+		resp := doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/register", prepareParams(t, params)))
+		assertStatus(t, 422, resp)
+		assertBody(t, "favourite cake must contain only alphabetic characters", resp)
 	})
 }
