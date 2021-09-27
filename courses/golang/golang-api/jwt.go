@@ -52,7 +52,7 @@ func (u *UserService) JWT(w http.ResponseWriter, r *http.Request, jwtService *JW
 	}
 
 	if string(passwordDigest) != user.PasswordDigest {
-		handleError(errors.New("invalid login params"), w)
+		handleError(errors.New("invalid login credentials"), w)
 		return
 	}
 
