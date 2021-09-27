@@ -274,6 +274,7 @@ func TestUsers_JWT(t *testing.T) {
 		ts := httptest.NewServer(newRouter(u, jwtService))
 		defer ts.Close()
 
+		// registration
 		registerParams := map[string]interface{}{
 			"email":         "test@mail.com",
 			"password":      "somepass",
@@ -281,27 +282,31 @@ func TestUsers_JWT(t *testing.T) {
 		}
 		doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/register", prepareParams(t, registerParams)))
 
+		// JWT generation
 		jwtParams := map[string]interface{}{
 			"email":    "test@mail.com",
 			"password": "somepass",
 		}
 		jwtResp := doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/jwt", prepareParams(t, jwtParams)))
 
+		// cake updating
 		updateCakeParams := map[string]interface{}{
 			"email":         "test@mail.com",
 			"password":      "somepass",
 			"favorite_cake": "cinnabon",
 		}
-
 		req, _ := http.NewRequest(http.MethodPut, ts.URL+"/user/favorite_cake", prepareParams(t, updateCakeParams))
 		req.Header.Set("Authorization", "Bearer "+string(jwtResp.body))
 		resp := doRequest(req, nil)
+
 		assertStatus(t, 200, resp)
 		assertBody(t, "favorite cake updated", resp)
 
+		// user info printing
 		req, _ = http.NewRequest(http.MethodGet, ts.URL+"/user/me", nil)
 		req.Header.Set("Authorization", "Bearer "+string(jwtResp.body))
 		resp = doRequest(req, nil)
+
 		assertStatus(t, 200, resp)
 		assertBody(t, "[test@mail.com], your favourite cake is cinnabon", resp)
 	})
@@ -332,7 +337,7 @@ func TestUsers_JWT(t *testing.T) {
 		}
 		jwtResp := doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/jwt", prepareParams(t, jwtParams)))
 
-		// email update
+		// email updating
 		updateEmailParams := map[string]interface{}{
 			"email":         "another@mail.com",
 			"password":      "somepass",
@@ -361,4 +366,51 @@ func TestUsers_JWT(t *testing.T) {
 		assertBody(t, "[another@mail.com], your favourite cake is cheesecake", resp)
 	})
 
+	t.Run("updating password", func(t *testing.T) {
+		u := newTestUserService()
+
+		jwtService, jwtErr := NewJWTService("pubkey.rsa", "privkey.rsa")
+		if jwtErr != nil {
+			panic(jwtErr)
+		}
+
+		ts := httptest.NewServer(newRouter(u, jwtService))
+		defer ts.Close()
+
+		// registration
+		registerParams := map[string]interface{}{
+			"email":         "test@mail.com",
+			"password":      "somepass",
+			"favorite_cake": "cheesecake",
+		}
+		doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/register", prepareParams(t, registerParams)))
+
+		// JWT generation
+		jwtParams := map[string]interface{}{
+			"email":    "test@mail.com",
+			"password": "somepass",
+		}
+		jwtResp := doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/jwt", prepareParams(t, jwtParams)))
+
+		// cake updating
+		updatePasswordParams := map[string]interface{}{
+			"email":         "test@mail.com",
+			"password":      "anotherpass",
+			"favorite_cake": "cheesecake",
+		}
+		req, _ := http.NewRequest(http.MethodPut, ts.URL+"/user/password", prepareParams(t, updatePasswordParams))
+		req.Header.Set("Authorization", "Bearer "+string(jwtResp.body))
+		resp := doRequest(req, nil)
+
+		assertStatus(t, 200, resp)
+		assertBody(t, "password updated", resp)
+
+		// user info printing
+		req, _ = http.NewRequest(http.MethodGet, ts.URL+"/user/me", nil)
+		req.Header.Set("Authorization", "Bearer "+string(jwtResp.body))
+		resp = doRequest(req, nil)
+
+		assertStatus(t, 200, resp)
+		assertBody(t, "[test@mail.com], your favourite cake is cheesecake", resp)
+	})
 }
