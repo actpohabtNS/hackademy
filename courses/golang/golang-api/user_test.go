@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/gorilla/mux"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -55,6 +56,16 @@ func newTestUserService() *UserService {
 	}
 }
 
+func newTestRouter(u *UserService, jwtService *JWTService) *mux.Router {
+	r := mux.NewRouter()
+
+	r.HandleFunc("/user/register", u.Register).Methods(http.MethodPost)
+	r.HandleFunc("/cake", jwtService.jwtAuth(u.repository, getCakeHandler)).Methods(http.MethodGet)
+	r.HandleFunc("/user/jwt", wrapJwt(jwtService, u.JWT)).Methods(http.MethodPost)
+
+	return r
+}
+
 func assertStatus(t *testing.T, expected int, r parsedResponse) {
 	if r.status != expected {
 		t.Errorf("Unexpected response status. Expected: %d,actual: %d", expected, r.status)
@@ -76,7 +87,7 @@ func TestUsers_JWT(t *testing.T) {
 		if err != nil {
 			t.FailNow()
 		}
-		ts := httptest.NewServer(http.HandlerFunc(wrapJwt(j, u.JWT)))
+		ts := httptest.NewServer(wrapJwt(j, u.JWT))
 		defer ts.Close()
 		params := map[string]interface{}{
 			"email":    "test@mail.com",
@@ -87,7 +98,97 @@ func TestUsers_JWT(t *testing.T) {
 		assertBody(t, "invalid login credentials", resp)
 	})
 
+	t.Run("registration", func(t *testing.T) {
+		u := newTestUserService()
+		ts := httptest.NewServer(logRequest(u.Register))
+		defer ts.Close()
+		params := map[string]interface{}{
+			"email":         "test@mail.com",
+			"password":      "somepass",
+			"favorite_cake": "cheesecake",
+		}
+		resp := doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/register", prepareParams(t, params)))
+		assertStatus(t, 201, resp)
+		assertBody(t, "registered", resp)
+	})
+
 	t.Run("wrong password", func(t *testing.T) {
-		t.Skip()
+		u := newTestUserService()
+
+		jwtService, jwtErr := NewJWTService("pubkey.rsa", "privkey.rsa")
+		if jwtErr != nil {
+			panic(jwtErr)
+		}
+
+		ts := httptest.NewServer(newTestRouter(u, jwtService))
+		defer ts.Close()
+
+		registerParams := map[string]interface{}{
+			"email":         "test@mail.com",
+			"password":      "somepass",
+			"favorite_cake": "cheesecake",
+		}
+		doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/register", prepareParams(t, registerParams)))
+
+		jwtParams := map[string]interface{}{
+			"email":    "test@mail.com",
+			"password": "wrongpass",
+		}
+		resp := doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/jwt", prepareParams(t, jwtParams)))
+		assertStatus(t, 422, resp)
+		assertBody(t, "invalid login credentials", resp)
+	})
+
+	t.Run("unauthorized", func(t *testing.T) {
+		u := newTestUserService()
+
+		jwtService, jwtErr := NewJWTService("pubkey.rsa", "privkey.rsa")
+		if jwtErr != nil {
+			panic(jwtErr)
+		}
+
+		ts := httptest.NewServer(newTestRouter(u, jwtService))
+		defer ts.Close()
+
+		registerParams := map[string]interface{}{
+			"email":         "test@mail.com",
+			"password":      "somepass",
+			"favorite_cake": "cheesecake",
+		}
+		doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/register", prepareParams(t, registerParams)))
+
+		resp := doRequest(http.NewRequest(http.MethodGet, ts.URL+"/cake", nil))
+		assertStatus(t, 401, resp)
+		assertBody(t, "unauthorized", resp)
+	})
+
+	t.Run("get cake", func(t *testing.T) {
+		u := newTestUserService()
+
+		jwtService, jwtErr := NewJWTService("pubkey.rsa", "privkey.rsa")
+		if jwtErr != nil {
+			panic(jwtErr)
+		}
+
+		ts := httptest.NewServer(newTestRouter(u, jwtService))
+		defer ts.Close()
+
+		registerParams := map[string]interface{}{
+			"email":         "test@mail.com",
+			"password":      "somepass",
+			"favorite_cake": "cheesecake",
+		}
+		doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/register", prepareParams(t, registerParams)))
+
+		jwtParams := map[string]interface{}{
+			"email":    "test@mail.com",
+			"password": "somepass",
+		}
+		jwtResp := doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/jwt", prepareParams(t, jwtParams)))
+		req, _ := http.NewRequest(http.MethodGet, ts.URL+"/cake", nil)
+		req.Header.Set("Authorization", "Bearer "+string(jwtResp.body))
+		resp := doRequest(req, nil)
+		assertStatus(t, 200, resp)
+		assertBody(t, "cheesecake", resp)
 	})
 }
