@@ -29,58 +29,128 @@ type UserRegisterParams struct {
 	FavoriteCake string `json:"favorite_cake"`
 }
 
-func validateRegisterParams(p *UserRegisterParams) error {
-	// 1. Email is valid
-	if _, err := mail.ParseAddress(p.Email); err != nil {
+func validateEmail(email string) error {
+	if _, err := mail.ParseAddress(email); err != nil {
 		return errors.New("must provide an email")
 	}
+	return nil
+}
 
+func validatePassword(password string) error {
 	// 2. Password at least 8 symbols
-	if len(p.Password) < 8 {
+	if len(password) < 8 {
 		return errors.New("password must be at least 8 symbols")
 	}
+	return nil
+}
 
+func validateFavoriteCake(cake string) error {
 	// 3. Favorite cake not empty
-	if len(p.FavoriteCake) < 1 {
+	if len(cake) < 1 {
 		return errors.New("favourite cake can't be empty")
 	}
-
 	// 4. Favorite cake only alphabetic
-	for _, charVariable := range p.FavoriteCake {
+	for _, charVariable := range cake {
 		if (charVariable < 'a' || charVariable > 'z') && (charVariable < 'A' || charVariable > 'Z') {
 			return errors.New("favourite cake must contain only alphabetic characters")
 		}
 	}
-
 	return nil
 }
+
+func validateRegisterParams(p *UserRegisterParams) error {
+	err := validateFavoriteCake(p.FavoriteCake)
+	if err != nil {
+		return err
+	}
+
+	err = validatePassword(p.Password)
+	if err != nil {
+		return err
+	}
+
+	err = validateEmail(p.Email)
+	return err
+}
+
 func (u *UserService) Register(w http.ResponseWriter, r *http.Request) {
 	params := &UserRegisterParams{}
 	err := json.NewDecoder(r.Body).Decode(params)
 	if err != nil {
-		handleError(errors.New("could not read params"), w)
+		handleUnprocError(errors.New("could not read params"), w)
 		return
 	}
+
 	if err := validateRegisterParams(params); err != nil {
-		handleError(err, w)
+		handleUnprocError(err, w)
 		return
 	}
+
 	passwordDigest := md5.New().Sum([]byte(params.Password))
 	newUser := User{
 		Email:          params.Email,
 		PasswordDigest: string(passwordDigest),
 		FavoriteCake:   params.FavoriteCake,
 	}
+
 	err = u.repository.Add(params.Email, newUser)
 	if err != nil {
-		handleError(err, w)
+		handleUnprocError(err, w)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
 	_, _ = w.Write([]byte("registered"))
 }
 
-func handleError(err error, w http.ResponseWriter) {
-	w.WriteHeader(http.StatusUnprocessableEntity)
+func getCakeHandler(w http.ResponseWriter, _ *http.Request, u User, _ UserRepository) {
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("[" + u.Email + "], your favourite cake is " + u.FavoriteCake))
+}
+
+func updateCakeHandler(w http.ResponseWriter, r *http.Request, u User, users UserRepository) {
+	params := &UserRegisterParams{}
+	err := json.NewDecoder(r.Body).Decode(params)
+	if err != nil {
+		handleUnprocError(errors.New("could not read params"), w)
+		return
+	}
+
+	if err := validateFavoriteCake(params.FavoriteCake); err != nil {
+		handleUnprocError(err, w)
+		return
+	}
+
+	passwordDigest := string(md5.New().Sum([]byte(params.Password)))
+
+	if params.Email != u.Email || passwordDigest != u.PasswordDigest {
+		handleUnauthError(errors.New("unauthorized"), w)
+		return
+	}
+
+	updatedUser := User{
+		Email:          params.Email,
+		PasswordDigest: passwordDigest,
+		FavoriteCake:   params.FavoriteCake,
+	}
+
+	err = users.Update(params.Email, updatedUser)
+	if err != nil {
+		handleUnprocError(err, w)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("favorite cake updated"))
+}
+
+func handleUnprocError(err error, w http.ResponseWriter) {
+	handleError(err, 422, w)
+}
+
+func handleUnauthError(err error, w http.ResponseWriter) {
+	handleError(err, 401, w)
+}
+
+func handleError(err error, status int, w http.ResponseWriter) {
+	w.WriteHeader(status)
 	_, _ = w.Write([]byte(err.Error()))
 }

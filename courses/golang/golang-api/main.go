@@ -16,17 +16,23 @@ func wrapJwt(jwt *JWTService, f func(http.ResponseWriter, *http.Request, *JWTSer
 	}
 }
 
-func getCakeHandler(w http.ResponseWriter, r *http.Request, u User) {
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte("[" + u.Email + "], your favourite cake is " + u.FavoriteCake))
-}
-
 func newRouter(u *UserService, jwtService *JWTService) *mux.Router {
 	r := mux.NewRouter()
 
 	r.HandleFunc("/user/register", u.Register).Methods(http.MethodPost)
-	r.HandleFunc("/user/me", jwtService.jwtAuth(u.repository, getCakeHandler)).Methods(http.MethodGet)
 	r.HandleFunc("/user/jwt", wrapJwt(jwtService, u.JWT)).Methods(http.MethodPost)
+	r.HandleFunc("/user/me", jwtService.jwtAuth(u.repository, getCakeHandler)).Methods(http.MethodGet)
+	r.HandleFunc("/user/favorite_cake", jwtService.jwtAuth(u.repository, updateCakeHandler)).Methods(http.MethodPut)
+	return r
+}
+
+func newLoggingRouter(u *UserService, jwtService *JWTService) *mux.Router {
+	r := mux.NewRouter()
+
+	r.HandleFunc("/user/register", logRequest(u.Register)).Methods(http.MethodPost)
+	r.HandleFunc("/user/jwt", logRequest(wrapJwt(jwtService, u.JWT))).Methods(http.MethodPost)
+	r.HandleFunc("/user/me", logRequest(jwtService.jwtAuth(u.repository, getCakeHandler))).Methods(http.MethodGet)
+	r.HandleFunc("/user/favorite_cake", logRequest(jwtService.jwtAuth(u.repository, getCakeHandler))).Methods(http.MethodPut)
 
 	return r
 }
@@ -40,7 +46,7 @@ func main() {
 		panic(jwtErr)
 	}
 
-	r := newRouter(&userService, jwtService)
+	r := newLoggingRouter(&userService, jwtService)
 
 	srv := http.Server{
 		Addr:    ":8080",

@@ -39,7 +39,7 @@ func (u *UserService) JWT(w http.ResponseWriter, r *http.Request, jwtService *JW
 	decErr := json.NewDecoder(r.Body).Decode(params)
 
 	if decErr != nil {
-		handleError(errors.New("could not read params"), w)
+		handleUnprocError(errors.New("could not read params"), w)
 		return
 	}
 
@@ -47,19 +47,19 @@ func (u *UserService) JWT(w http.ResponseWriter, r *http.Request, jwtService *JW
 	user, err := u.repository.Get(params.Email)
 
 	if err != nil {
-		handleError(err, w)
+		handleUnprocError(err, w)
 		return
 	}
 
 	if string(passwordDigest) != user.PasswordDigest {
-		handleError(errors.New("invalid login credentials"), w)
+		handleUnprocError(errors.New("invalid login credentials"), w)
 		return
 	}
 
 	token, jwtErr := jwtService.GenerateJWT(user)
 
 	if jwtErr != nil {
-		handleError(jwtErr, w)
+		handleUnprocError(jwtErr, w)
 		return
 	}
 
@@ -67,7 +67,7 @@ func (u *UserService) JWT(w http.ResponseWriter, r *http.Request, jwtService *JW
 	_, _ = w.Write([]byte(token))
 }
 
-type ProtectedHandler func(rw http.ResponseWriter, r *http.Request, u User)
+type ProtectedHandler func(rw http.ResponseWriter, r *http.Request, u User, users UserRepository)
 
 func (j *JWTService) jwtAuth(users UserRepository, h ProtectedHandler) http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
@@ -75,16 +75,14 @@ func (j *JWTService) jwtAuth(users UserRepository, h ProtectedHandler) http.Hand
 		token := strings.TrimPrefix(authHeader, "Bearer ")
 		jwtAuth, err := j.ParseJWT(token)
 		if err != nil {
-			rw.WriteHeader(401)
-			_, _ = rw.Write([]byte("unauthorized"))
+			handleUnauthError(errors.New("unauthorized"), rw)
 			return
 		}
 		user, err := users.Get(jwtAuth.Email)
 		if err != nil {
-			rw.WriteHeader(401)
-			_, _ = rw.Write([]byte("unauthorized"))
+			handleUnauthError(errors.New("unauthorized"), rw)
 			return
 		}
-		h(rw, r, user)
+		h(rw, r, user, users)
 	}
 }

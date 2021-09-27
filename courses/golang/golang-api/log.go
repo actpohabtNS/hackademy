@@ -31,7 +31,7 @@ func logRequest(h http.HandlerFunc) http.HandlerFunc {
 		body, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			log.Println("Could not read request body", err)
-			handleError(errors.New("could not read request"), rw)
+			handleUnprocError(errors.New("could not read request"), rw)
 			return
 		}
 		r.Body = ioutil.NopCloser(bytes.NewBuffer(body))
