@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/gorilla/mux"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -54,16 +53,6 @@ func newTestUserService() *UserService {
 	return &UserService{
 		repository: NewInMemoryUserStorage(),
 	}
-}
-
-func newTestRouter(u *UserService, jwtService *JWTService) *mux.Router {
-	r := mux.NewRouter()
-
-	r.HandleFunc("/user/register", u.Register).Methods(http.MethodPost)
-	r.HandleFunc("/user/me", jwtService.jwtAuth(u.repository, getCakeHandler)).Methods(http.MethodGet)
-	r.HandleFunc("/user/jwt", wrapJwt(jwtService, u.JWT)).Methods(http.MethodPost)
-
-	return r
 }
 
 func assertStatus(t *testing.T, expected int, r parsedResponse) {
@@ -136,7 +125,7 @@ func TestUsers_JWT(t *testing.T) {
 			panic(jwtErr)
 		}
 
-		ts := httptest.NewServer(newTestRouter(u, jwtService))
+		ts := httptest.NewServer(newRouter(u, jwtService))
 		defer ts.Close()
 
 		registerParams := map[string]interface{}{
@@ -163,7 +152,7 @@ func TestUsers_JWT(t *testing.T) {
 			panic(jwtErr)
 		}
 
-		ts := httptest.NewServer(newTestRouter(u, jwtService))
+		ts := httptest.NewServer(newRouter(u, jwtService))
 		defer ts.Close()
 
 		registerParams := map[string]interface{}{
@@ -186,7 +175,7 @@ func TestUsers_JWT(t *testing.T) {
 			panic(jwtErr)
 		}
 
-		ts := httptest.NewServer(newTestRouter(u, jwtService))
+		ts := httptest.NewServer(newRouter(u, jwtService))
 		defer ts.Close()
 
 		registerParams := map[string]interface{}{

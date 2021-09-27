@@ -21,9 +21,17 @@ func getCakeHandler(w http.ResponseWriter, r *http.Request, u User) {
 	_, _ = w.Write([]byte("[" + u.Email + "], your favourite cake is " + u.FavoriteCake))
 }
 
-func main() {
+func newRouter(u *UserService, jwtService *JWTService) *mux.Router {
 	r := mux.NewRouter()
 
+	r.HandleFunc("/user/register", u.Register).Methods(http.MethodPost)
+	r.HandleFunc("/user/me", jwtService.jwtAuth(u.repository, getCakeHandler)).Methods(http.MethodGet)
+	r.HandleFunc("/user/jwt", wrapJwt(jwtService, u.JWT)).Methods(http.MethodPost)
+
+	return r
+}
+
+func main() {
 	users := NewInMemoryUserStorage()
 	userService := UserService{repository: users}
 
@@ -32,9 +40,7 @@ func main() {
 		panic(jwtErr)
 	}
 
-	r.HandleFunc("/user/register", logRequest(userService.Register)).Methods(http.MethodPost)
-	r.HandleFunc("/user/jwt", logRequest(wrapJwt(jwtService, userService.JWT))).Methods(http.MethodPost)
-	r.HandleFunc("/user/me", logRequest(jwtService.jwtAuth(users, getCakeHandler))).Methods(http.MethodGet)
+	r := newRouter(&userService, jwtService)
 
 	srv := http.Server{
 		Addr:    ":8080",
