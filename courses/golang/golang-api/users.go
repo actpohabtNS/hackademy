@@ -10,8 +10,11 @@ import (
 
 type User struct {
 	Email          string
+	Role           Role
+	Banned         bool
 	PasswordDigest string
 	FavoriteCake   string
+	BanHistory     BanHistory
 }
 type UserRepository interface {
 	Add(string, User) error
@@ -89,8 +92,11 @@ func (u *UserService) Register(w http.ResponseWriter, r *http.Request) {
 	passwordDigest := md5.New().Sum([]byte(params.Password))
 	newUser := User{
 		Email:          params.Email,
+		Role:           UserRole,
+		Banned:         false,
 		PasswordDigest: string(passwordDigest),
 		FavoriteCake:   params.FavoriteCake,
+		BanHistory:     BanHistory{},
 	}
 
 	err = u.repository.Add(params.Email, newUser)
