@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 )
 
 func TestAdmin_JWT(t *testing.T) {
@@ -166,5 +167,65 @@ func TestAdmin_JWT(t *testing.T) {
 		unbannedJwtResp := doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/jwt", prepareParams(t, unbannedJwtParams)))
 
 		assertStatus(t, 200, unbannedJwtResp)
+	})
+
+	t.Run("inspecting user with ban history", func(t *testing.T) {
+		u := newTestUserService()
+
+		jwtService, jwtErr := NewJWTService("pubkey.rsa", "privkey.rsa")
+		if jwtErr != nil {
+			panic(jwtErr)
+		}
+
+		ts := httptest.NewServer(newRouter(u, jwtService))
+		defer ts.Close()
+
+		// registration
+		registerParams := map[string]interface{}{
+			"email":         "test@mail.com",
+			"password":      "somepass",
+			"favorite_cake": "cheesecake",
+		}
+		doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/register", prepareParams(t, registerParams)))
+
+		// superadmin JWT generation
+		jwtParams := map[string]interface{}{
+			"email":    os.Getenv("CAKE_SUPERADMIN_EMAIL"),
+			"password": os.Getenv("CAKE_SUPERADMIN_PASSWORD"),
+		}
+		jwtResp := doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/jwt", prepareParams(t, jwtParams)))
+
+		// trying ban user
+		banParams := map[string]interface{}{
+			"email":  "test@mail.com",
+			"reason": "bad boy",
+		}
+		banReq, _ := http.NewRequest(http.MethodPost, ts.URL+"/admin/ban", prepareParams(t, banParams))
+		banReq.Header.Set("Authorization", "Bearer "+string(jwtResp.body))
+		banTime := time.Now().Format(banTimeFormat)
+		doRequest(banReq, nil)
+		banStr := "-- was banned (reason: bad boy) at " + banTime + " by " +
+			os.Getenv("CAKE_SUPERADMIN_EMAIL") + "\n"
+
+		// trying unban user
+		unbanParams := map[string]interface{}{
+			"email": "test@mail.com",
+		}
+		unbanReq, _ := http.NewRequest(http.MethodPost, ts.URL+"/admin/unban", prepareParams(t, unbanParams))
+		unbanReq.Header.Set("Authorization", "Bearer "+string(jwtResp.body))
+		unbanTime := time.Now().Format(banTimeFormat)
+		doRequest(unbanReq, nil)
+		unbanStr := "-- was unbanned at " + unbanTime + " by " +
+			os.Getenv("CAKE_SUPERADMIN_EMAIL") + "\n"
+
+		// inspecting user
+		inspectReq, _ := http.NewRequest(http.MethodGet,
+			ts.URL+"/admin/inspect?email=test@mail.com",
+			prepareParams(t, jwtParams))
+		inspectReq.Header.Set("Authorization", "Bearer "+string(jwtResp.body))
+		inspectRest := doRequest(inspectReq, nil)
+
+		assertStatus(t, 200, inspectRest)
+		assertBody(t, "user test@mail.com:\n"+banStr+unbanStr, inspectRest)
 	})
 }
