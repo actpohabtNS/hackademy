@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/md5"
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"
@@ -16,7 +17,27 @@ func wrapJwt(jwt *JWTService, f func(http.ResponseWriter, *http.Request, *JWTSer
 	}
 }
 
+func createEnvVars() {
+	_ = os.Setenv("CAKE_SUPERADMIN_EMAIL", "supadmin@mail.com")
+	_ = os.Setenv("CAKE_SUPERADMIN_PASSWORD", "IamSuperadmin")
+	_ = os.Setenv("CAKE_SUPERADMIN_CAKE", "bestManCake")
+}
+
+func processEnvVars(u *UserService) {
+	passwordDigest := md5.New().Sum([]byte(os.Getenv("CAKE_SUPERADMIN_PASSWORD")))
+	supadmin := User{
+		Email:          os.Getenv("CAKE_SUPERADMIN_EMAIL"),
+		Role:           SuperAdminRole,
+		Banned:         false,
+		PasswordDigest: string(passwordDigest),
+		FavoriteCake:   os.Getenv("CAKE_SUPERADMIN_CAKE"),
+		BanHistory:     BanHistory{},
+	}
+	_ = u.repository.Add(supadmin.Email, supadmin)
+}
+
 func newRouter(u *UserService, jwtService *JWTService) *mux.Router {
+	createEnvVars()
 	r := mux.NewRouter()
 
 	r.HandleFunc("/user/register", u.Register).Methods(http.MethodPost)
@@ -25,10 +46,12 @@ func newRouter(u *UserService, jwtService *JWTService) *mux.Router {
 	r.HandleFunc("/user/favorite_cake", jwtService.jwtAuth(u.repository, updateCakeHandler)).Methods(http.MethodPut)
 	r.HandleFunc("/user/email", jwtService.jwtAuth(u.repository, updateEmailHandler)).Methods(http.MethodPut)
 	r.HandleFunc("/user/password", jwtService.jwtAuth(u.repository, updatePasswordHandler)).Methods(http.MethodPut)
+	processEnvVars(u)
 	return r
 }
 
 func newLoggingRouter(u *UserService, jwtService *JWTService) *mux.Router {
+	createEnvVars()
 	r := mux.NewRouter()
 
 	r.HandleFunc("/user/register", logRequest(u.Register)).Methods(http.MethodPost)
@@ -37,7 +60,7 @@ func newLoggingRouter(u *UserService, jwtService *JWTService) *mux.Router {
 	r.HandleFunc("/user/favorite_cake", logRequest(jwtService.jwtAuth(u.repository, getCakeHandler))).Methods(http.MethodPut)
 	r.HandleFunc("/user/email", logRequest(jwtService.jwtAuth(u.repository, updateEmailHandler))).Methods(http.MethodPut)
 	r.HandleFunc("/user/password", logRequest(jwtService.jwtAuth(u.repository, updatePasswordHandler))).Methods(http.MethodPut)
-
+	processEnvVars(u)
 	return r
 }
 
