@@ -26,9 +26,12 @@ type UserUnbanParams struct {
 
 type BanHistoryQuery struct {
 	Executor string
+	IsBan    bool
 	Time     time.Time
 	Reason   string
 }
+
+const banTimeFormat = "02 January 2006 01:02:03"
 
 type BanHistory []BanHistoryQuery
 
@@ -58,6 +61,7 @@ func banHandler(w http.ResponseWriter, r *http.Request, executor User, users Use
 
 	banHistoryQuery := BanHistoryQuery{
 		Executor: executor.Email,
+		IsBan:    true,
 		Time:     time.Now(),
 		Reason:   params.Reason,
 	}
@@ -88,7 +92,7 @@ func unbanHandler(w http.ResponseWriter, r *http.Request, executor User, users U
 
 	user, getErr := users.Get(params.Email)
 	if getErr != nil {
-		handleUnprocError(err, w)
+		handleUnprocError(getErr, w)
 		return
 	}
 
@@ -99,6 +103,7 @@ func unbanHandler(w http.ResponseWriter, r *http.Request, executor User, users U
 
 	banHistoryQuery := BanHistoryQuery{
 		Executor: executor.Email,
+		IsBan:    false,
 		Time:     time.Now(),
 		Reason:   "",
 	}
@@ -112,4 +117,30 @@ func unbanHandler(w http.ResponseWriter, r *http.Request, executor User, users U
 	}
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("user " + user.Email + " unbanned"))
+}
+
+func inspectHandler(w http.ResponseWriter, r *http.Request, _ User, users UserRepository) {
+	email := r.URL.Query().Get("email")
+
+	user, getErr := users.Get(email)
+	if getErr != nil {
+		handleUnprocError(getErr, w)
+		return
+	}
+
+	banHistoryStr := ""
+	for _, query := range user.BanHistory {
+		banStr := ""
+		if query.IsBan {
+			banStr = "banned (reason: " + query.Reason + ")"
+		} else {
+			banStr = "unbanned"
+		}
+		banHistoryStr += "-- was " + banStr + " at " +
+			query.Time.Format(banTimeFormat) +
+			" by " + query.Executor + "\n"
+	}
+
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("user " + user.Email + ":\n" + banHistoryStr))
 }
