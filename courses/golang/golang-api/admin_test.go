@@ -228,4 +228,66 @@ func TestAdmin_JWT(t *testing.T) {
 		assertStatus(t, 200, inspectRest)
 		assertBody(t, "user test@mail.com:\n"+banStr+unbanStr, inspectRest)
 	})
+
+	t.Run("promoting user", func(t *testing.T) {
+		u := newTestUserService()
+
+		jwtService, jwtErr := NewJWTService("pubkey.rsa", "privkey.rsa")
+		if jwtErr != nil {
+			panic(jwtErr)
+		}
+
+		ts := httptest.NewServer(newRouter(u, jwtService))
+		defer ts.Close()
+
+		// future admin registration
+		registerParams := map[string]interface{}{
+			"email":         "test@mail.com",
+			"password":      "somepass",
+			"favorite_cake": "cheesecake",
+		}
+		doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/register", prepareParams(t, registerParams)))
+
+		// regular user registration
+		registerRegParams := map[string]interface{}{
+			"email":         "simpleUser@mail.com",
+			"password":      "somepass",
+			"favorite_cake": "cheesecake",
+		}
+		doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/register", prepareParams(t, registerRegParams)))
+
+		// superadmin JWT generation
+		jwtParams := map[string]interface{}{
+			"email":    os.Getenv("CAKE_SUPERADMIN_EMAIL"),
+			"password": os.Getenv("CAKE_SUPERADMIN_PASSWORD"),
+		}
+		jwtResp := doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/jwt", prepareParams(t, jwtParams)))
+
+		// trying ban user
+		promoteParams := map[string]interface{}{
+			"email": "test@mail.com",
+		}
+		promoteReq, _ := http.NewRequest(http.MethodPost, ts.URL+"/admin/promote", prepareParams(t, promoteParams))
+		promoteReq.Header.Set("Authorization", "Bearer "+string(jwtResp.body))
+		promoteResp := doRequest(promoteReq, nil)
+
+		assertStatus(t, 200, promoteResp)
+		assertBody(t, "user test@mail.com promoted to admin", promoteResp)
+
+		// promoted user getting JWT
+		promotedJwtResp := doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/jwt", prepareParams(t, registerParams)))
+
+		// new admin banning simple user
+		banParams := map[string]interface{}{
+			"email":  "simpleUser@mail.com",
+			"reason": "astronaut",
+		}
+
+		banReq, _ := http.NewRequest(http.MethodPost, ts.URL+"/admin/ban", prepareParams(t, banParams))
+		banReq.Header.Set("Authorization", "Bearer "+string(promotedJwtResp.body))
+		banResp := doRequest(banReq, nil)
+
+		assertStatus(t, 200, banResp)
+		assertBody(t, "user simpleUser@mail.com banned", banResp)
+	})
 }
