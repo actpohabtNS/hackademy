@@ -52,7 +52,7 @@ func banHandler(w http.ResponseWriter, r *http.Request, executor User, users Use
 
 	user, getErr := users.Get(params.Email)
 	if getErr != nil {
-		handleUnprocError(err, w)
+		handleUnprocError(getErr, w)
 		return
 	}
 
