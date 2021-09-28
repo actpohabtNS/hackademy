@@ -49,6 +49,7 @@ func newRouter(u *UserService, jwtService *JWTService) *mux.Router {
 	r.HandleFunc("/admin/ban", jwtService.jwtAuthAdmin(u.repository, banHandler)).Methods(http.MethodPost)
 	r.HandleFunc("/admin/unban", jwtService.jwtAuthAdmin(u.repository, unbanHandler)).Methods(http.MethodPost)
 	r.HandleFunc("/admin/inspect", jwtService.jwtAuthAdmin(u.repository, inspectHandler)).Methods(http.MethodGet)
+	r.HandleFunc("/admin/promote", jwtService.jwtAuthSuperAdmin(u.repository, promoteHandler)).Methods(http.MethodPost)
 	processEnvVars(u)
 	return r
 }
@@ -66,6 +67,7 @@ func newLoggingRouter(u *UserService, jwtService *JWTService) *mux.Router {
 	r.HandleFunc("/admin/ban", logRequest(jwtService.jwtAuthAdmin(u.repository, banHandler))).Methods(http.MethodPost)
 	r.HandleFunc("/admin/unban", logRequest(jwtService.jwtAuthAdmin(u.repository, unbanHandler))).Methods(http.MethodPost)
 	r.HandleFunc("/admin/inspect", logRequest(jwtService.jwtAuthAdmin(u.repository, inspectHandler))).Methods(http.MethodGet)
+	r.HandleFunc("/admin/promote", logRequest(jwtService.jwtAuthSuperAdmin(u.repository, inspectHandler))).Methods(http.MethodPost)
 	processEnvVars(u)
 	return r
 }

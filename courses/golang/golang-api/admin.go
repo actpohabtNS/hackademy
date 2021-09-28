@@ -20,9 +20,11 @@ type UserBanParams struct {
 	Reason string `json:"reason"`
 }
 
-type UserUnbanParams struct {
+type EmailParams = struct {
 	Email string `json:"email"`
 }
+
+type UserUnbanParams = EmailParams
 
 type BanHistoryQuery struct {
 	Executor string
@@ -143,4 +145,28 @@ func inspectHandler(w http.ResponseWriter, r *http.Request, _ User, users UserRe
 
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("user " + user.Email + ":\n" + banHistoryStr))
+}
+
+func promoteHandler(w http.ResponseWriter, r *http.Request, _ User, users UserRepository) {
+	params := &EmailParams{}
+	err := json.NewDecoder(r.Body).Decode(params)
+	if err != nil {
+		handleUnprocError(errors.New("could not read params"), w)
+		return
+	}
+	user, getErr := users.Get(params.Email)
+	if getErr != nil {
+		handleUnprocError(getErr, w)
+		return
+	}
+
+	user.Role = AdminRole
+	err = users.Update(user.Email, user)
+	if err != nil {
+		handleUnprocError(err, w)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("user " + user.Email + " promoted to admin"))
 }
