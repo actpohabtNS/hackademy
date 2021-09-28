@@ -263,7 +263,7 @@ func TestAdmin_JWT(t *testing.T) {
 		}
 		jwtResp := doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/jwt", prepareParams(t, jwtParams)))
 
-		// trying ban user
+		// promoting user
 		promoteParams := map[string]interface{}{
 			"email": "test@mail.com",
 		}
@@ -290,4 +290,136 @@ func TestAdmin_JWT(t *testing.T) {
 		assertStatus(t, 200, banResp)
 		assertBody(t, "user simpleUser@mail.com banned", banResp)
 	})
+
+	t.Run("admin accessing superadmin api", func(t *testing.T) {
+		u := newTestUserService()
+
+		jwtService, jwtErr := NewJWTService("pubkey.rsa", "privkey.rsa")
+		if jwtErr != nil {
+			panic(jwtErr)
+		}
+
+		ts := httptest.NewServer(newRouter(u, jwtService))
+		defer ts.Close()
+
+		// future admin registration
+		registerParams := map[string]interface{}{
+			"email":         "test@mail.com",
+			"password":      "somepass",
+			"favorite_cake": "cheesecake",
+		}
+		doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/register", prepareParams(t, registerParams)))
+
+		// regular user registration
+		registerRegParams := map[string]interface{}{
+			"email":         "simpleUser@mail.com",
+			"password":      "somepass",
+			"favorite_cake": "cheesecake",
+		}
+		doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/register", prepareParams(t, registerRegParams)))
+
+		// superadmin JWT generation
+		jwtParams := map[string]interface{}{
+			"email":    os.Getenv("CAKE_SUPERADMIN_EMAIL"),
+			"password": os.Getenv("CAKE_SUPERADMIN_PASSWORD"),
+		}
+		jwtResp := doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/jwt", prepareParams(t, jwtParams)))
+
+		// promoting user
+		promoteParams := map[string]interface{}{
+			"email": "test@mail.com",
+		}
+		promoteReq, _ := http.NewRequest(http.MethodPost, ts.URL+"/admin/promote", prepareParams(t, promoteParams))
+		promoteReq.Header.Set("Authorization", "Bearer "+string(jwtResp.body))
+		promoteResp := doRequest(promoteReq, nil)
+
+		assertStatus(t, 200, promoteResp)
+		assertBody(t, "user test@mail.com promoted to admin", promoteResp)
+
+		// promoted user getting JWT
+		promotedJwtResp := doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/jwt", prepareParams(t, registerParams)))
+
+		// new admin trying to promote simple user
+		promoteSimpleParams := map[string]interface{}{
+			"email": "simpleUser@mail.com",
+		}
+
+		promoteSimpleReq, _ := http.NewRequest(http.MethodPost, ts.URL+"/admin/promote", prepareParams(t, promoteSimpleParams))
+		promoteSimpleReq.Header.Set("Authorization", "Bearer "+string(promotedJwtResp.body))
+		promoteSimpleResp := doRequest(promoteSimpleReq, nil)
+
+		assertStatus(t, 401, promoteSimpleResp)
+		assertBody(t, "permission denied", promoteSimpleResp)
+	})
+
+	t.Run("firing admin", func(t *testing.T) {
+		u := newTestUserService()
+
+		jwtService, jwtErr := NewJWTService("pubkey.rsa", "privkey.rsa")
+		if jwtErr != nil {
+			panic(jwtErr)
+		}
+
+		ts := httptest.NewServer(newRouter(u, jwtService))
+		defer ts.Close()
+
+		// future admin registration
+		registerParams := map[string]interface{}{
+			"email":         "test@mail.com",
+			"password":      "somepass",
+			"favorite_cake": "cheesecake",
+		}
+		doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/register", prepareParams(t, registerParams)))
+
+		// regular user registration
+		registerRegParams := map[string]interface{}{
+			"email":         "simpleUser@mail.com",
+			"password":      "somepass",
+			"favorite_cake": "cheesecake",
+		}
+		doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/register", prepareParams(t, registerRegParams)))
+
+		// superadmin JWT generation
+		jwtParams := map[string]interface{}{
+			"email":    os.Getenv("CAKE_SUPERADMIN_EMAIL"),
+			"password": os.Getenv("CAKE_SUPERADMIN_PASSWORD"),
+		}
+		jwtResp := doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/jwt", prepareParams(t, jwtParams)))
+
+		// promoting user
+		promoteParams := map[string]interface{}{
+			"email": "test@mail.com",
+		}
+		promoteReq, _ := http.NewRequest(http.MethodPost, ts.URL+"/admin/promote", prepareParams(t, promoteParams))
+		promoteReq.Header.Set("Authorization", "Bearer "+string(jwtResp.body))
+		promoteResp := doRequest(promoteReq, nil)
+
+		assertStatus(t, 200, promoteResp)
+		assertBody(t, "user test@mail.com promoted to admin", promoteResp)
+
+		// firing admin
+		fireReq, _ := http.NewRequest(http.MethodPost, ts.URL+"/admin/fire", prepareParams(t, promoteParams))
+		fireReq.Header.Set("Authorization", "Bearer "+string(jwtResp.body))
+		fireResp := doRequest(fireReq, nil)
+
+		assertStatus(t, 200, fireResp)
+		assertBody(t, "admin test@mail.com downgraded to user", fireResp)
+
+		// fired user getting JWT
+		promotedJwtResp := doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/jwt", prepareParams(t, registerParams)))
+
+		// fired admin banning simple user
+		banParams := map[string]interface{}{
+			"email":  "simpleUser@mail.com",
+			"reason": "astronaut",
+		}
+
+		banReq, _ := http.NewRequest(http.MethodPost, ts.URL+"/admin/ban", prepareParams(t, banParams))
+		banReq.Header.Set("Authorization", "Bearer "+string(promotedJwtResp.body))
+		banResp := doRequest(banReq, nil)
+
+		assertStatus(t, 401, banResp)
+		assertBody(t, "permission denied", banResp)
+	})
+
 }
