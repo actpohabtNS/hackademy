@@ -56,6 +56,13 @@ func (u *UserService) JWT(w http.ResponseWriter, r *http.Request, jwtService *JW
 		return
 	}
 
+	if user.Banned {
+		handleUnauthError(errors.New("you are banned! Reason: "+
+			user.BanHistory[len(user.BanHistory)-1].Reason),
+			w)
+		return
+	}
+
 	token, jwtErr := jwtService.GenerateJWT(user)
 
 	if jwtErr != nil {
@@ -90,7 +97,7 @@ func (j *JWTService) jwtAuthRoleExecutor(minimalAccessRole Role, users UserRepos
 			return
 		}
 		if user.Role < minimalAccessRole {
-			handleUnauthError(errors.New("not enough rights"), rw)
+			handleUnauthError(errors.New("permission denied"), rw)
 			return
 		}
 		h(rw, r, user, users)

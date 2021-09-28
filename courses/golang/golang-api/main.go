@@ -46,6 +46,7 @@ func newRouter(u *UserService, jwtService *JWTService) *mux.Router {
 	r.HandleFunc("/user/favorite_cake", jwtService.jwtAuth(u.repository, updateCakeHandler)).Methods(http.MethodPut)
 	r.HandleFunc("/user/email", jwtService.jwtAuth(u.repository, updateEmailHandler)).Methods(http.MethodPut)
 	r.HandleFunc("/user/password", jwtService.jwtAuth(u.repository, updatePasswordHandler)).Methods(http.MethodPut)
+	r.HandleFunc("/admin/ban", jwtService.jwtAuthAdmin(u.repository, banHandler)).Methods(http.MethodPost)
 	processEnvVars(u)
 	return r
 }
@@ -60,6 +61,7 @@ func newLoggingRouter(u *UserService, jwtService *JWTService) *mux.Router {
 	r.HandleFunc("/user/favorite_cake", logRequest(jwtService.jwtAuth(u.repository, getCakeHandler))).Methods(http.MethodPut)
 	r.HandleFunc("/user/email", logRequest(jwtService.jwtAuth(u.repository, updateEmailHandler))).Methods(http.MethodPut)
 	r.HandleFunc("/user/password", logRequest(jwtService.jwtAuth(u.repository, updatePasswordHandler))).Methods(http.MethodPut)
+	r.HandleFunc("/admin/ban", logRequest(jwtService.jwtAuthAdmin(u.repository, banHandler))).Methods(http.MethodPost)
 	processEnvVars(u)
 	return r
 }
