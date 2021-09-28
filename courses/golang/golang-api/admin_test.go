@@ -116,6 +116,129 @@ func TestAdmin_JWT(t *testing.T) {
 		assertBody(t, "you are banned! Reason: bad boy", bannedJwtResp)
 	})
 
+	t.Run("banning user with wrong email", func(t *testing.T) {
+		u := newTestUserService()
+
+		jwtService, jwtErr := NewJWTService("pubkey.rsa", "privkey.rsa")
+		if jwtErr != nil {
+			panic(jwtErr)
+		}
+
+		ts := httptest.NewServer(newRouter(u, jwtService))
+		defer ts.Close()
+
+		// registration
+		registerParams := map[string]interface{}{
+			"email":         "test@mail.com",
+			"password":      "somepass",
+			"favorite_cake": "cheesecake",
+		}
+		doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/register", prepareParams(t, registerParams)))
+
+		// superadmin JWT generation
+		jwtParams := map[string]interface{}{
+			"email":    os.Getenv("CAKE_SUPERADMIN_EMAIL"),
+			"password": os.Getenv("CAKE_SUPERADMIN_PASSWORD"),
+		}
+		jwtResp := doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/jwt", prepareParams(t, jwtParams)))
+
+		// trying ban user
+		banParams := map[string]interface{}{
+			"email":  "notAnEmail",
+			"reason": "bad boy",
+		}
+		req, _ := http.NewRequest(http.MethodPost, ts.URL+"/admin/ban", prepareParams(t, banParams))
+		req.Header.Set("Authorization", "Bearer "+string(jwtResp.body))
+		resp := doRequest(req, nil)
+
+		assertStatus(t, 422, resp)
+		assertBody(t, "must provide an email", resp)
+	})
+
+	t.Run("banning not existing user", func(t *testing.T) {
+		u := newTestUserService()
+
+		jwtService, jwtErr := NewJWTService("pubkey.rsa", "privkey.rsa")
+		if jwtErr != nil {
+			panic(jwtErr)
+		}
+
+		ts := httptest.NewServer(newRouter(u, jwtService))
+		defer ts.Close()
+
+		// superadmin JWT generation
+		jwtParams := map[string]interface{}{
+			"email":    os.Getenv("CAKE_SUPERADMIN_EMAIL"),
+			"password": os.Getenv("CAKE_SUPERADMIN_PASSWORD"),
+		}
+		jwtResp := doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/jwt", prepareParams(t, jwtParams)))
+
+		// trying ban user
+		banParams := map[string]interface{}{
+			"email":  "notExist@mail.com",
+			"reason": "bad boy",
+		}
+		req, _ := http.NewRequest(http.MethodPost, ts.URL+"/admin/ban", prepareParams(t, banParams))
+		req.Header.Set("Authorization", "Bearer "+string(jwtResp.body))
+		resp := doRequest(req, nil)
+
+		assertStatus(t, 422, resp)
+		assertBody(t, "invalid login credentials", resp)
+	})
+
+	t.Run("banned user accessing api with jwt", func(t *testing.T) {
+		u := newTestUserService()
+
+		jwtService, jwtErr := NewJWTService("pubkey.rsa", "privkey.rsa")
+		if jwtErr != nil {
+			panic(jwtErr)
+		}
+
+		ts := httptest.NewServer(newRouter(u, jwtService))
+		defer ts.Close()
+
+		// registration
+		registerParams := map[string]interface{}{
+			"email":         "test@mail.com",
+			"password":      "somepass",
+			"favorite_cake": "cheesecake",
+		}
+		doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/register", prepareParams(t, registerParams)))
+
+		// superadmin JWT generation
+		jwtParams := map[string]interface{}{
+			"email":    os.Getenv("CAKE_SUPERADMIN_EMAIL"),
+			"password": os.Getenv("CAKE_SUPERADMIN_PASSWORD"),
+		}
+		jwtResp := doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/jwt", prepareParams(t, jwtParams)))
+
+		// user JWT generation before ban
+		userJwtParams := map[string]interface{}{
+			"email":    "test@mail.com",
+			"password": "somepass",
+		}
+		userJwtResp := doRequest(http.NewRequest(http.MethodPost, ts.URL+"/user/jwt", prepareParams(t, userJwtParams)))
+
+		// trying ban user
+		banParams := map[string]interface{}{
+			"email":  "test@mail.com",
+			"reason": "bad boy",
+		}
+		req, _ := http.NewRequest(http.MethodPost, ts.URL+"/admin/ban", prepareParams(t, banParams))
+		req.Header.Set("Authorization", "Bearer "+string(jwtResp.body))
+		resp := doRequest(req, nil)
+
+		assertStatus(t, 200, resp)
+		assertBody(t, "user test@mail.com banned", resp)
+
+		// banned user accessing api
+		bannedReq, _ := http.NewRequest(http.MethodGet, ts.URL+"/user/me", nil)
+		bannedReq.Header.Set("Authorization", "Bearer "+string(userJwtResp.body))
+		bannedResp := doRequest(bannedReq, nil)
+		assertStatus(t, 401, bannedResp)
+		assertBody(t, "you are banned! Reason: bad boy", bannedResp)
+	})
+
 	t.Run("unbanning user", func(t *testing.T) {
 		u := newTestUserService()
 
@@ -421,5 +544,4 @@ func TestAdmin_JWT(t *testing.T) {
 		assertStatus(t, 401, banResp)
 		assertBody(t, "permission denied", banResp)
 	})
-
 }
