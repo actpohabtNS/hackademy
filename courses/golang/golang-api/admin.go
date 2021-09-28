@@ -170,3 +170,27 @@ func promoteHandler(w http.ResponseWriter, r *http.Request, _ User, users UserRe
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("user " + user.Email + " promoted to admin"))
 }
+
+func fireHandler(w http.ResponseWriter, r *http.Request, _ User, users UserRepository) {
+	params := &EmailParams{}
+	err := json.NewDecoder(r.Body).Decode(params)
+	if err != nil {
+		handleUnprocError(errors.New("could not read params"), w)
+		return
+	}
+	user, getErr := users.Get(params.Email)
+	if getErr != nil {
+		handleUnprocError(getErr, w)
+		return
+	}
+
+	user.Role = UserRole
+	err = users.Update(user.Email, user)
+	if err != nil {
+		handleUnprocError(err, w)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("admin " + user.Email + " downgraded to user"))
+}
