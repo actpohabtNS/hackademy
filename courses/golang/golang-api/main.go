@@ -47,6 +47,7 @@ func newRouter(u *UserService, jwtService *JWTService) *mux.Router {
 	r.HandleFunc("/user/email", jwtService.jwtAuth(u.repository, updateEmailHandler)).Methods(http.MethodPut)
 	r.HandleFunc("/user/password", jwtService.jwtAuth(u.repository, updatePasswordHandler)).Methods(http.MethodPut)
 	r.HandleFunc("/admin/ban", jwtService.jwtAuthAdmin(u.repository, banHandler)).Methods(http.MethodPost)
+	r.HandleFunc("/admin/unban", jwtService.jwtAuthAdmin(u.repository, unbanHandler)).Methods(http.MethodPost)
 	processEnvVars(u)
 	return r
 }
@@ -62,6 +63,7 @@ func newLoggingRouter(u *UserService, jwtService *JWTService) *mux.Router {
 	r.HandleFunc("/user/email", logRequest(jwtService.jwtAuth(u.repository, updateEmailHandler))).Methods(http.MethodPut)
 	r.HandleFunc("/user/password", logRequest(jwtService.jwtAuth(u.repository, updatePasswordHandler))).Methods(http.MethodPut)
 	r.HandleFunc("/admin/ban", logRequest(jwtService.jwtAuthAdmin(u.repository, banHandler))).Methods(http.MethodPost)
+	r.HandleFunc("/admin/unban", logRequest(jwtService.jwtAuthAdmin(u.repository, unbanHandler))).Methods(http.MethodPost)
 	processEnvVars(u)
 	return r
 }
