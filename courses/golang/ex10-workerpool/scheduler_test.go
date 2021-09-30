@@ -1,4 +1,4 @@
-package goroutines
+package workerpool
 
 import (
 	"bufio"
