@@ -5,13 +5,7 @@ func _chFrequency(str string, ch chan map[string]int) {
 
 	for _, char := range str {
 		strCh, _ := Downcase(string(char))
-		_, ok := freqMap[strCh]
-
-		if !ok {
-			freqMap[strCh] = 1
-		} else {
-			freqMap[strCh]++
-		}
+		freqMap[strCh]++
 	}
 
 	ch <- freqMap
@@ -35,13 +29,7 @@ func ConcurrentFrequency(strings []string) map[string]int {
 	for i := 0; i < len(strings); i++ {
 		freqMap := <-ch
 		for letter, freq := range freqMap {
-			_, ok := freqMapRes[letter]
-
-			if !ok {
-				freqMapRes[letter] = freq
-			} else {
-				freqMapRes[letter] += freq
-			}
+			freqMapRes[letter] += freq
 		}
 	}
 
