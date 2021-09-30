@@ -5,7 +5,7 @@ type Cipher interface {
 	Decode(string) string
 }
 
-func _encode(str string, shift int32) string {
+func encode(str string, shift int32) string {
 	if shift < 0 {
 		shift += 26
 	}
@@ -15,11 +15,11 @@ func _encode(str string, shift int32) string {
 	str, _ = Downcase(str)
 
 	for _, char := range str {
-		if char < 97 || char > 122 {
+		if char < 'a' || char > 'z' {
 			continue
 		}
 
-		res += (string)((char-97+shift)%26 + 97)
+		res += (string)((char-'a'+shift)%26 + 'a')
 	}
 
 	return res
@@ -28,11 +28,11 @@ func _encode(str string, shift int32) string {
 type caesarCipher struct{}
 
 func (c caesarCipher) Encode(str string) string {
-	return _encode(str, 3)
+	return encode(str, 3)
 }
 
 func (c caesarCipher) Decode(str string) string {
-	return _encode(str, -3)
+	return encode(str, -3)
 }
 
 func NewCaesar() Cipher {
@@ -44,11 +44,11 @@ type shiftCipher struct {
 }
 
 func (s shiftCipher) Encode(str string) string {
-	return _encode(str, s.shift)
+	return encode(str, s.shift)
 }
 
 func (s shiftCipher) Decode(str string) string {
-	return _encode(str, -s.shift)
+	return encode(str, -s.shift)
 }
 
 func NewShift(shift int) Cipher {
@@ -62,7 +62,7 @@ type vigenereCipher struct {
 	key string
 }
 
-func _vigOperation(str string, key string, add bool) string {
+func vigenereEncode(str string, key string, add bool) string {
 	res := ""
 
 	str, _ = Downcase(str)
@@ -75,40 +75,36 @@ func _vigOperation(str string, key string, add bool) string {
 
 	keyI := 0
 	for _, char := range str {
-		if char < 97 || char > 122 {
+		if char < 'a' || char > 'z' {
 			continue
 		}
 
-		shift := int(key[keyI]) - 97
-		res += _encode(string(char), modifier*int32(shift))
+		shift := int(key[keyI]) - 'a'
+		res += encode(string(char), modifier*int32(shift))
 
-		if keyI+1 == len(key) {
-			keyI = 0
-		} else {
-			keyI++
-		}
+		keyI = (keyI + 1) % len(key)
 	}
 
 	return res
 }
 
 func (v vigenereCipher) Encode(str string) string {
-	return _vigOperation(str, v.key, true)
+	return vigenereEncode(str, v.key, true)
 }
 
 func (v vigenereCipher) Decode(str string) string {
-	return _vigOperation(str, v.key, false)
+	return vigenereEncode(str, v.key, false)
 }
 
 func vigenereKeyIsCorrect(key string) bool {
 	notAFound := false
 
 	for _, char := range key {
-		if char < 97 || char > 122 {
+		if char < 'a' || char > 'z' {
 			return false
 		}
 
-		if char != 97 {
+		if char != 'a' {
 			notAFound = true
 		}
 	}
