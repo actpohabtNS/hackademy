@@ -1,15 +1,15 @@
 package downcase
 
 func Downcase(str string) (string, error) {
-    res := ""
+	res := ""
 
-    for _, char := range str {
-        if 65 <= char && char <= 90 {
-            res += string(char + 32)
-        } else {
-            res += string(char)
-        }
-    }
+	for _, char := range str {
+		if 'A' <= char && char <= 'Z' {
+			res += string(char + 32)
+		} else {
+			res += string(char)
+		}
+	}
 
-    return res, nil
+	return res, nil
 }
