@@ -1,11 +1,13 @@
-package workerpool
+package main
 
 import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/signal"
 	"strings"
 	"sync"
+	"syscall"
 )
 
 type Scheduler struct {
@@ -75,10 +77,35 @@ func (scheduler *Scheduler) PrintWorkers() {
 	}
 }
 
+func (scheduler *Scheduler) KillAndRemoveIdling() {
+	fmt.Println("killing idling workers")
+	for len(scheduler.IdlingWorkers) > 0 {
+		w := <-scheduler.IdlingWorkers
+		w.stop <- 1
+		delete(scheduler.Workers, w.id)
+	}
+}
+
+func watchShutdownSignals(flag *bool) {
+	sigc := make(chan os.Signal, 1)
+	signal.Notify(sigc,
+		syscall.SIGINT,
+		syscall.SIGTERM)
+	go func() {
+		<-sigc
+		*flag = false
+	}()
+}
+
 func Read(scheduler *Scheduler) {
 	scanner := bufio.NewScanner(os.Stdin)
 
-	for scanner.Scan() {
+	notShutdown := true
+
+	watchShutdownSignals(&notShutdown)
+
+scanner:
+	for scanner.Scan() && notShutdown {
 		text := scanner.Text()
 		words := strings.Fields(text)
 		if len(words) == 0 {
@@ -91,6 +118,10 @@ func Read(scheduler *Scheduler) {
 			return
 		case "print":
 			scheduler.PrintWorkers()
+		case "kill":
+			scheduler.KillAndRemoveIdling()
+		case "gs": // graceful shutdown
+			break scanner
 		default:
 			job, err := NewJob(command)
 			if err != nil {
@@ -100,6 +131,7 @@ func Read(scheduler *Scheduler) {
 			scheduler.AddJob(job)
 		}
 	}
+	fmt.Println("Shutting down...")
 	close(scheduler.Jobs)
 }
 
