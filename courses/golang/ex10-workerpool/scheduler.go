@@ -131,7 +131,6 @@ scanner:
 			scheduler.AddJob(job)
 		}
 	}
-	fmt.Println("Shutting down...")
 	close(scheduler.Jobs)
 }
 
