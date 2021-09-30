@@ -4,7 +4,7 @@ func Bracket(str string) (bool, error) {
 	brackets := Stack{}
 
 	for _, bracketCode := range str {
-		if bracketCode == 40 || bracketCode == 91 || bracketCode == 123 {
+		if bracketCode == '(' || bracketCode == '[' || bracketCode == '{' {
 			brackets.Push(int(bracketCode))
 			continue
 		}
