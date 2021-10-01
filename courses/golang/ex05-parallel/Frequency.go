@@ -1,6 +1,6 @@
 package letter
 
-func _chFrequency(str string, ch chan map[string]int) {
+func charFrequency(str string, ch chan map[string]int) {
 	freqMap := make(map[string]int)
 
 	for _, char := range str {
@@ -13,7 +13,7 @@ func _chFrequency(str string, ch chan map[string]int) {
 
 func Frequency(str string) map[string]int {
 	ch := make(chan map[string]int)
-	go _chFrequency(str, ch)
+	go charFrequency(str, ch)
 	return <-ch
 }
 
@@ -21,7 +21,7 @@ func ConcurrentFrequency(strings []string) map[string]int {
 	ch := make(chan map[string]int)
 
 	for i := 0; i < len(strings); i++ {
-		go _chFrequency(strings[i], ch)
+		go charFrequency(strings[i], ch)
 	}
 
 	freqMapRes := make(map[string]int)
